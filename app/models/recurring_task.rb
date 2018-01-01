@@ -1,10 +1,12 @@
 class RecurringTask < ActiveRecord::Base
   unloadable
 
+  include Redmine::Utils::DateCalculation
+
   belongs_to :issue, :foreign_key => 'current_issue_id'
   has_one :project, :through => :issue
 
-  attr_accessible :id, :current_issue_id, :interval_number, :interval_modifier, :interval_unit, :fixed_schedule, :recur_subtasks# list all fields that you want to be accessible here
+  attr_accessible :id, :current_issue_id, :interval_number, :interval_modifier, :interval_unit, :fixed_schedule, :recur_subtasks, :only_working_days # list all fields that you want to be accessible here
   
   # these are the flags used in the database to denote the interval
   # the actual text displayed to the user is controlled in the language file
@@ -172,45 +174,52 @@ class RecurringTask < ActiveRecord::Base
   
   # next due date for the task, if there is one (relative tasks won't have a next schedule until the current issue is closed)
   def next_scheduled_recurrence
+    next_recurrence_date = calculate_next_scheduled_recurrence
+    next_recurrence_date = next_working_date(next_recurrence_date) if only_working_days
+    return next_recurrence_date
+  end
+
+  # method that calculates next day based on interval and modifier
+  def calculate_next_scheduled_recurrence
     prev_date = previous_date_for_recurrence
-    if prev_date.nil? 
+    if prev_date.nil?
       logger.error "Previous date for recurrence was nil for recurrence #{id}"
       Date.today
-    else 
+    else
       # previous_date_for_recurrence + recurrence_pattern #41
       case interval_unit
-      when INTERVAL_DAY
-        (prev_date + interval_number.days).to_date
-      when INTERVAL_WEEK
-        (prev_date + interval_number.weeks).to_date
-      when INTERVAL_MONTH
-        case interval_modifier
-        when MONTH_MODIFIER_DAY_FROM_FIRST
-          (prev_date + interval_number.months).to_date
-        when MONTH_MODIFIER_DAY_TO_LAST
-          days_to_last = prev_date.end_of_month - prev_date
-          ((prev_date + interval_number.months).end_of_month - days_to_last).to_date
-        when MONTH_MODIFIER_DOW_FROM_FIRST
-          source_dow = prev_date.days_to_week_start
-          target_bom = (prev_date + interval_number.months).beginning_of_month
-          target_bom_dow = target_bom.days_to_week_start
-          week = ((prev_date.mday - 1) / 7) + ((source_dow >= target_bom_dow) ? 0 : 1)
-          (target_bom + week.weeks + source_dow - target_bom_dow).to_date
-        when MONTH_MODIFIER_DOW_TO_LAST
-          source_dow = prev_date.days_to_week_start
-          target_eom = (prev_date + interval_number.months).end_of_month
-          target_eom_dow = target_eom.days_to_week_start
-          week = ((prev_date.end_of_month - prev_date).to_i / 7) + ((source_dow > target_eom_dow) ? 1 : 0)
-          (target_eom - week.weeks + source_dow - target_eom_dow).to_date
+        when INTERVAL_DAY
+          (prev_date + interval_number.days).to_date
+        when INTERVAL_WEEK
+          (prev_date + interval_number.weeks).to_date
+        when INTERVAL_MONTH
+          case interval_modifier
+            when MONTH_MODIFIER_DAY_FROM_FIRST
+              (prev_date + interval_number.months).to_date
+            when MONTH_MODIFIER_DAY_TO_LAST
+              days_to_last = prev_date.end_of_month - prev_date
+              ((prev_date + interval_number.months).end_of_month - days_to_last).to_date
+            when MONTH_MODIFIER_DOW_FROM_FIRST
+              source_dow = prev_date.days_to_week_start
+              target_bom = (prev_date + interval_number.months).beginning_of_month
+              target_bom_dow = target_bom.days_to_week_start
+              week = ((prev_date.mday - 1) / 7) + ((source_dow >= target_bom_dow) ? 0 : 1)
+              (target_bom + week.weeks + source_dow - target_bom_dow).to_date
+            when MONTH_MODIFIER_DOW_TO_LAST
+              source_dow = prev_date.days_to_week_start
+              target_eom = (prev_date + interval_number.months).end_of_month
+              target_eom_dow = target_eom.days_to_week_start
+              week = ((prev_date.end_of_month - prev_date).to_i / 7) + ((source_dow > target_eom_dow) ? 1 : 0)
+              (target_eom - week.weeks + source_dow - target_eom_dow).to_date
+            else
+              raise "#{l(:error_invalid_modifier)} #{interval_modifier} (next_scheduled_recurrence)"
+          end
+        when INTERVAL_YEAR
+          (prev_date + interval_number.years).to_date
         else
-          raise "#{l(:error_invalid_modifier)} #{interval_modifier} (next_scheduled_recurrence)"
-        end
-      when INTERVAL_YEAR
-        (prev_date + interval_number.years).to_date
-      else
-        raise "#{l(:error_invalid_interval)} #{interval_unit} (next_scheduled_recurrence)"
+          raise "#{l(:error_invalid_interval)} #{interval_unit} (next_scheduled_recurrence)"
       end
-      
+
     end
   end
   
@@ -330,8 +339,7 @@ class RecurringTask < ActiveRecord::Base
       task.recur_issue_if_needed!
     end # do each
   end # end add_recurrences
-  
-private
+
   # the date from which to recur
   # for a fixed schedule, this is the due date
   # for a relative schedule, this is the date closed
@@ -349,4 +357,6 @@ private
       issue.closed_on 
     end
   end
+
+  private :calculate_next_scheduled_recurrence
 end

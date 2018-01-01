@@ -31,6 +31,7 @@ cs:
   field_recur_subtasks: "Opakovat podúlohy?"
   field_recurrence: "Opakování "
   field_please_select: "--- Prosím vyberte ---"
+  field_only_working_days: "Opakovat pouze v pracovní dny?"
   
   interval_day:   "den"
   interval_week:  "týden"

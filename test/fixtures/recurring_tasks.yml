@@ -4,3 +4,11 @@ fixed_daily_recurrence:
   interval_modifier: mdff
   interval_number: 1
   interval_unit: d
+
+fixed_daily_workday_recurrence:
+  issue: fixed_daily_recurrence
+  fixed_schedule: true
+  interval_modifier: mdff
+  interval_number: 1
+  interval_unit: d
+  only_working_days: true

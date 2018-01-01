@@ -31,6 +31,7 @@ en:
   field_recur_subtasks: "Recur subtasks?"
   field_recurrence: "Recurrence"
   field_please_select: "--- Please select ---"
+  field_only_working_days: "Recur tasks only on working dates?"
   
   interval_day:   "day"
   interval_week:  "week"

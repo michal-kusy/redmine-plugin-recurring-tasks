@@ -26,4 +26,13 @@ class RecurringTaskTest < ActiveSupport::TestCase
     task.recur_issue_if_needed!
     assert_nil task.issue.closed_on
   end
+
+  def test_next_working_date
+    task = RecurringTask.find fixture(:fixed_daily_workdate_recurrence)
+    Setting.non_working_week_days = (1..6).to_a.map(&:to_s) # set working days only to Sunday
+
+    next_recurrence_date = task.next_scheduled_recurrence
+    assert next_recurrence_date.cwday == 7
+
+  end
 end

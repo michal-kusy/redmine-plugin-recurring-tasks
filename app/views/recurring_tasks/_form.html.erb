@@ -1,20 +1,48 @@
-<%= labelled_form_for rt, :url => { :action => next_step, :id=>rt } do |f| %>
-<div class="box tabular"> 
+<%= labelled_form_for rt, :url => {:action => next_step, :id => rt} do |f| %>
+  <div class="box tabular">
     <%= error_messages_for 'recurring_task' %>
     <%= f.hidden_field :id %>
     <p><%= label(:recurring_task, :current_issue_id, l(:field_issue)) %><%= collection_select('recurring_task', 'current_issue_id', @recurrable_issues, :id, :subj_date) %></p>
-    
-    
+
+
     <p><%= f.number_field :interval_number, :required => true, :size => 4, :maxlength => 4 %></p>
-    <p><%= f.select :interval_unit, @interval_units, {:prompt => l(:field_please_select), :required => true}, :onChange =>"document.getElementById('interval_modifier_block').style.display=(this.value=='"+ RecurringTask::INTERVAL_MONTH + "' ? 'block' : 'none')" %></p>
-    <% modifier_display = (rt.interval_unit == RecurringTask::INTERVAL_MONTH) ? "display:inline" : "display:none" %>
-    <%= content_tag :div, :id => "interval_modifier_block", :style => modifier_display do -%>
-      <p><%= f.select 'interval_modifier', rt.get_modifiers_descriptions.collect{|k,v| [v, k]} %></p>
+    <p><%= f.select :interval_unit, @interval_units, {:prompt => l(:field_please_select), :required => true, :id => 'interval_unit'}, :onChange => "showHideIntervalModifiedBlock(this.value,getFixedSchedule())" %></p>
+
+    <% show = {true => "display:inline", false => "display:none"} %>
+    <% orig_fixed_schedule = rt.fixed_schedule %>
+
+    <%= content_tag :div, :id => "interval_modifier_block_fixed", :style => show[rt.interval_unit == RecurringTask::INTERVAL_MONTH && orig_fixed_schedule] do -%>
+      <% rt.fixed_schedule = true %>
+      <p><%= f.select 'interval_modifier', rt.get_modifiers_descriptions.collect {|k, v| [v, k]}, {}, :disabled => !orig_fixed_schedule, :id => 'interval_modifier_fixed' %></p>
     <% end -%>
-    <p><%= f.check_box :fixed_schedule %></p>
+    <%= content_tag :div, :id => "interval_modifier_block", :style => show[rt.interval_unit == RecurringTask::INTERVAL_MONTH && !orig_fixed_schedule] do -%>
+      <% rt.fixed_schedule = false %>
+      <p><%= f.select 'interval_modifier', rt.get_modifiers_descriptions.collect {|k, v| [v, k]}, {}, :disabled => orig_fixed_schedule, :id => 'interval_modifier' %></p>
+    <% end -%>
+
+    <% rt.fixed_schedule = orig_fixed_schedule %>
+
+    <p><%= f.check_box :fixed_schedule, :onclick => "showHideIntervalModifiedBlock(getIntervalUnit(),getFixedSchedule())", :id => 'recurring_task_fixed_schedule' %></p>
     <p><%= f.check_box :recur_subtasks %></p>
+    <p><%= f.check_box :only_working_days %></p>
   </div>
   <%= f.submit %>
   <%= link_to l(:button_cancel), :back %>
-</div>
+  <script>
+    function getFixedSchedule() { return $('#recurring_task_fixed_schedule').prop('checked'); }
+    function getIntervalUnit() { return $('#recurring_task_interval_unit').val(); }
+
+    function showHideIntervalModifiedBlock(intervalUnit,fixedSchedule) {
+        var k = 'interval_modifier_block' + (fixedSchedule?'_fixed':''),
+            k2 = 'interval_modifier' + (fixedSchedule?'_fixed':'');
+        $('#interval_modifier_block,#interval_modifier_block_fixed').hide();
+        $('#interval_modifier_fixed,#interval_modifier').attr('disabled','disabled');
+        var el = document.getElementById(k);
+        el.style.display=(intervalUnit ==='<%= RecurringTask::INTERVAL_MONTH %>' ? 'block' : 'none');
+        $(document.getElementById(k2)).removeAttr('disabled');
+        //TODO enable select
+    }
+  </script>
+
+  </div>
 <% end %>
